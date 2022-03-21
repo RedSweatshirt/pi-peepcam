@@ -2,7 +2,6 @@ import imutils as imutils
 import numpy as np
 import cv2 as cv
 import time
-import imutils
 import PIL
 from PIL import Image
 
@@ -107,6 +106,7 @@ def display_frame(frame):
     if frame is None:
         return
     frame = size_down(frame)
+    frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
     image = Image.fromarray(frame)
     disp.display(image)
 
@@ -144,6 +144,30 @@ def eh_update():
         on_motion = False
     if eh.touch.two.is_pressed():
         on_motion = True
+
+
+def grab_contours(cnts):
+    # if the length the contours tuple returned by cv2.findContours
+    # is '2' then we are using either OpenCV v2.4, v4-beta, or
+    # v4-official
+    if len(cnts) == 2:
+        cnts = cnts[0]
+
+    # if the length of the contours tuple is '3' then we are using
+    # either OpenCV v3, v4-pre, or v4-alpha
+    elif len(cnts) == 3:
+        cnts = cnts[1]
+
+    # otherwise OpenCV has changed their cv2.findContours return
+    # signature yet again and I have no idea WTH is going on
+    else:
+        raise Exception(("Contours tuple must have length 2 or 3, "
+            "otherwise OpenCV changed their cv2.findContours return "
+            "signature yet again. Refer to OpenCV's documentation "
+            "in that case"))
+
+    # return the actual contours array
+    return cnts
 
 
 if __name__ == "__main__":
@@ -191,7 +215,7 @@ if __name__ == "__main__":
             thresh = cv.dilate(thresh, None, iterations=2)
             conts = cv.findContours(thresh.copy(), cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
-            conts = imutils.grab_contours(conts)
+            conts = grab_contours(conts)
             # loop over the contours
             for c in conts:
                 # if the contour is too small, ignore it
