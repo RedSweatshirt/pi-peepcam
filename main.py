@@ -3,6 +3,8 @@ import numpy as np
 import cv2 as cv
 import time
 import imutils
+import PIL
+from PIL import Image
 
 # hardware specific
 import pigpio                           # gpio
@@ -91,6 +93,8 @@ def screen_off():
     """
     global is_screen_on
     is_screen_on = False
+    image = Image.new(mode="RGB", size=(WIDTH, HEIGHT))
+    disp.display(image)
     set_brightness(0)
 
 
@@ -103,7 +107,8 @@ def display_frame(frame):
     if frame is None:
         return
     frame = size_down(frame)
-    disp.display(frame)
+    image = Image.fromarray(frame)
+    disp.display(image)
 
 
 def screen_update(frame=None, detected=False):
