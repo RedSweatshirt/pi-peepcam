@@ -1,5 +1,5 @@
-import imutils as imutils
 import numpy as np
+import imutils
 import cv2 as cv
 import time
 import PIL
@@ -21,10 +21,11 @@ camera.framerate = 30
 
 disp = ST7789.ST7789(
     port=0,
-    cs=-1,
-    dc=16,
+    cs=0,
+    dc=14,
     backlight=None,
-    rotation=90,
+    mode=3,
+    rotation=270,
     spi_speed_hz=90 * 1000 * 1000,
 )
 
@@ -32,15 +33,13 @@ disp.begin()
 WIDTH = disp.width
 HEIGHT = disp.height
 
-rst = 13    # reset pin
-pi.set_mode(rst, pigpio.OUTPUT)
 blk = 18    # backlight
 pi.set_mode(blk, pigpio.OUTPUT)
-brightness = 50
+brightness = 100
 pi.hardware_PWM(blk, 300, brightness * 10000)   # pin, hz, duty cycle as fraction out of 1MHz
 
 on_motion = True    # means screen only on for motion
-min_area = 500      # area of the motion for detection
+min_area = 100      # area of the motion for detection
 screen_time = 30     # time that the screen will be on, in seconds
 screen_start = 0    # time that the screen was turned on, in ms
 
@@ -58,12 +57,12 @@ def size_down(img):
     # first crop the image so that resize works
     if height > width:
         diff = height - width
-        img = img[diff/2:height-diff/2, :, :]
+        img = img[diff//2:height-diff//2, :, :]
     if width > height:
         diff = width - height
-        img = img[:, diff/2:width-diff/2, :]
+        img = img[:, diff//2:width-diff//2, :]
 
-    return cv.resize(img, (240, 240), interpolation=cv.INTER_LANCZOS4)
+    return cv.resize(img, (HEIGHT, WIDTH), interpolation=cv.INTER_AREA)
 
 
 def set_brightness(level):
@@ -72,7 +71,7 @@ def set_brightness(level):
     :param level: int between 0 and 100 inclusive
     :return: nothing
     """
-    pi.hardware_PWM(blk, 300, 1 * 10000)
+    pi.hardware_PWM(blk, 300, level * 10000)
 
 
 def screen_on():
@@ -82,7 +81,7 @@ def screen_on():
     """
     global is_screen_on
     is_screen_on = True
-    set_brightness(50)
+    set_brightness(100)
 
 
 def screen_off():
@@ -92,7 +91,7 @@ def screen_off():
     """
     global is_screen_on
     is_screen_on = False
-    image = Image.new(mode="RGB", size=(WIDTH, HEIGHT))
+    image = Image.new(mode="RGB", size=(WIDTH, HEIGHT), color=(255, 255, 255))
     disp.display(image)
     set_brightness(0)
 
@@ -120,12 +119,13 @@ def screen_update(frame=None, detected=False):
     """
     global screen_start
     global on_motion
+    global is_screen_on
 
     if on_motion:
         if detected:
             screen_start = time.time()
             screen_on()
-        elif time.time() - screen_start > screen_time * 1000:
+        elif time.time() - screen_start > screen_time:
             screen_off()
     elif not is_screen_on:
         screen_on()
@@ -146,32 +146,7 @@ def eh_update():
         on_motion = True
 
 
-def grab_contours(cnts):
-    # if the length the contours tuple returned by cv2.findContours
-    # is '2' then we are using either OpenCV v2.4, v4-beta, or
-    # v4-official
-    if len(cnts) == 2:
-        cnts = cnts[0]
-
-    # if the length of the contours tuple is '3' then we are using
-    # either OpenCV v3, v4-pre, or v4-alpha
-    elif len(cnts) == 3:
-        cnts = cnts[1]
-
-    # otherwise OpenCV has changed their cv2.findContours return
-    # signature yet again and I have no idea WTH is going on
-    else:
-        raise Exception(("Contours tuple must have length 2 or 3, "
-            "otherwise OpenCV changed their cv2.findContours return "
-            "signature yet again. Refer to OpenCV's documentation "
-            "in that case"))
-
-    # return the actual contours array
-    return cnts
-
-
 if __name__ == "__main__":
-    eh_update()
     # Generates a 3D RGB array and stores it in rawCapture
     raw_capture = PiRGBArray(camera, size=res)
 
@@ -187,6 +162,8 @@ if __name__ == "__main__":
         if frame is None:
             print("oh no")
             continue
+
+        eh_update()
 
         # Grab the raw NumPy array representing the image
         frame = frame.array
@@ -215,7 +192,7 @@ if __name__ == "__main__":
             thresh = cv.dilate(thresh, None, iterations=2)
             conts = cv.findContours(thresh.copy(), cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
-            conts = grab_contours(conts)
+            conts = imutils.grab_contours(conts)
             # loop over the contours
             for c in conts:
                 # if the contour is too small, ignore it
