@@ -22,7 +22,7 @@ camera.framerate = 30
 disp = ST7789.ST7789(
     port=0,
     cs=0,
-    dc=14,
+    dc=15,
     backlight=None,
     mode=3,
     rotation=270,
@@ -57,10 +57,10 @@ def size_down(img):
     # first crop the image so that resize works
     if height > width:
         diff = height - width
-        img = img[diff//2:height-diff//2, :, :]
+        img = img[diff//2:height-(diff//2), :, :]
     if width > height:
         diff = width - height
-        img = img[:, diff//2:width-diff//2, :]
+        img = img[:, diff//2:width-(diff//2), :]
 
     return cv.resize(img, (HEIGHT, WIDTH), interpolation=cv.INTER_AREA)
 
@@ -205,10 +205,9 @@ if __name__ == "__main__":
 
             if detected:
                 screen_update(frame, detected)
+                first_frame = gray
             else:
                 screen_update(frame)
-
-            first_frame = gray
 
         else:   # screen always on, no motion detection
             screen_update(frame)
